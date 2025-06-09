@@ -115,6 +115,12 @@ impl MancalaExt for Mancala {
             self[i] += 1;
         }
 
+        if self[end] == 1 && end < 6 {
+            self[6] += self[12 - end] + 1;
+            self[end] = 0;
+            self[12 - end] = 0;
+        }
+
         if self.seeds_in_pits(true) == [0; 6] {
             self[13] += self[7..13].iter_mut().fold(0, |mut acc, val| {
                 acc += *val;
@@ -131,12 +137,6 @@ impl MancalaExt for Mancala {
 
         if end == 6 {
             return Some(true);
-        }
-
-        if self[end] == 1 && end < 6 {
-            self[6] += self[12 - end] + 1;
-            self[end] = 0;
-            self[12 - end] = 0;
         }
 
         Some(false)
@@ -166,10 +166,10 @@ impl MancalaExt for Mancala {
 
 pub fn to_string(mancala: &Mancala) -> String{
     let mut out = String::new();
-    out += format!("    {}\n", mancala.seeds_in_goal(false)).as_str();
+    out += format!("    {:02}\n", mancala.seeds_in_goal(false)).as_str();
     (0..6).for_each(|i|{
-        out += format!("{i} ↓{} {}↑\n", mancala.seeds_in_pits(true)[i], mancala.seeds_in_pits(false)[5-i]).as_str();
+        out += format!("{i} ↓{}  {}↑\n", mancala.seeds_in_pits(true)[i], mancala.seeds_in_pits(false)[5-i]).as_str();
     });
-    out += format!("    {}", mancala.seeds_in_goal(true)).as_str();
+    out += format!("    {:02}", mancala.seeds_in_goal(true)).as_str();
     out
 }
