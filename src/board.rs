@@ -6,6 +6,7 @@ pub trait MancalaExt: Clone {
     fn new() -> Self;
     fn swap_players(&mut self);
     fn take_action(&mut self, action: u8) -> Option<bool>;
+    fn sweep(&mut self) -> bool;
     fn get_actions(&self) -> [bool; 6];
 
     fn seeds_in_goal(&self, player: bool) -> u8;
@@ -16,44 +17,58 @@ pub trait MancalaExt: Clone {
         self.seeds_in_goal(true) as i16 - self.seeds_in_goal(false) as i16
     }
 
-    fn minimax(&self, depth: u8, player: bool) -> i16 {
+    fn minimax(&self, depth: u8, player: bool, mut alpha: i16, mut beta: i16) -> i16 {
         if depth == 0 || self.is_game_over() {
             return self.heuristic_state_value();
         }
         if player {
             let mut max = i16::MIN;
             let mask = self.get_actions();
-            mask.iter()
-                .enumerate()
-                .filter(|(_, valid)| **valid)
-                .for_each(|(action, _)| {
-                    let mut child = (*self).clone();
-                    let res = child
-                        .take_action(action as u8)
-                        .expect("invalid move preformed");
-                    let eval =
-                        MancalaExt::minimax(&child, depth - 1, if res { player } else { !player });
-                    max = max.max(eval);
-                });
+            for (action, _) in mask.iter().enumerate().filter(|(_, valid)| **valid) {
+                let mut child = (*self).clone();
+                let res = child
+                    .take_action(action as u8)
+                    .expect("invalid move preformed");
+                child.sweep();
+                let eval = MancalaExt::minimax(
+                    &child,
+                    depth - 1,
+                    if res { player } else { !player },
+                    alpha,
+                    beta,
+                );
+                max = max.max(eval);
+                alpha = alpha.max(max);
+                if beta <= alpha {
+                    break;
+                }
+            }
             max
         } else {
             let mut min = i16::MAX;
             let mut enemy_view = self.clone();
             enemy_view.swap_players();
             let mask = enemy_view.get_actions();
-            mask.iter()
-                .enumerate()
-                .filter(|(_, valid)| **valid)
-                .for_each(|(action, _)| {
-                    let mut child = enemy_view.clone();
-                    let res = child
-                        .take_action(action as u8)
-                        .expect("invalid move preformed");
-                    child.swap_players();
-                    let eval =
-                        MancalaExt::minimax(&child, depth - 1, if res { player } else { !player });
-                    min = min.min(eval);
-                });
+            for (action, _) in mask.iter().enumerate().filter(|(_, valid)| **valid) {
+                let mut child = enemy_view.clone();
+                let res = child
+                    .take_action(action as u8)
+                    .expect("invalid move preformed");
+                child.sweep();
+                child.swap_players();
+                let eval = MancalaExt::minimax(
+                    &child,
+                    depth - 1,
+                    if res { player } else { !player },
+                    alpha,
+                    beta,
+                );
+                min = min.min(eval);
+                beta = beta.min(min);
+                if beta <= alpha {
+                    break;
+                }
+            }
             min
         }
     }
@@ -70,7 +85,7 @@ pub trait MancalaExt: Clone {
                 let res = child
                     .take_action(action as u8)
                     .expect("invalid move preformed");
-                let eval = MancalaExt::minimax(&child, 10, res);
+                let eval = MancalaExt::minimax(&child, 13, res, i16::MIN, i16::MAX);
                 if eval > max {
                     max = eval;
                     best_move = action as u8;
@@ -121,25 +136,31 @@ impl MancalaExt for Mancala {
             self[12 - end] = 0;
         }
 
+        if end == 6 {
+            return Some(true);
+        }
+
+        Some(false)
+    }
+
+    fn sweep(&mut self) -> bool {
         if self.seeds_in_pits(true) == [0; 6] {
             self[13] += self[7..13].iter_mut().fold(0, |mut acc, val| {
                 acc += *val;
                 *val = 0;
                 acc
             });
+            true
         } else if self.seeds_in_pits(false) == [0; 6] {
             self[6] += self[0..6].iter_mut().fold(0, |mut acc, val| {
                 acc += *val;
                 *val = 0;
                 acc
             });
+            true
+        } else {
+            false
         }
-
-        if end == 6 {
-            return Some(true);
-        }
-
-        Some(false)
     }
 
     fn get_actions(&self) -> [bool; 6] {
@@ -164,12 +185,17 @@ impl MancalaExt for Mancala {
     }
 }
 
-pub fn to_string(mancala: &Mancala) -> String{
+pub fn to_string(mancala: &Mancala) -> String {
     let mut out = String::new();
-    out += format!("    {:02}\n", mancala.seeds_in_goal(false)).as_str();
-    (0..6).for_each(|i|{
-        out += format!("{i} ↓{}  {}↑\n", mancala.seeds_in_pits(true)[i], mancala.seeds_in_pits(false)[5-i]).as_str();
+    out += format!("     {:02}\n", mancala.seeds_in_goal(false)).as_str();
+    (0..6).for_each(|i| {
+        out += format!(
+            "{i} ↓{:02}  {:02}↑\n",
+            mancala.seeds_in_pits(true)[i],
+            mancala.seeds_in_pits(false)[5 - i]
+        )
+        .as_str();
     });
-    out += format!("    {:02}", mancala.seeds_in_goal(true)).as_str();
+    out += format!("     {:02}", mancala.seeds_in_goal(true)).as_str();
     out
 }
