@@ -5,7 +5,7 @@ use board::{to_string, Mancala, MancalaExt};
 mod board;
 fn main() {
     let mut mancala = Mancala::new();
-    let mut player = false;
+    let mut player = true;
     while !mancala.is_game_over() {
         println!("Mancala board:\n{}", to_string(&mancala));
         if mancala.sweep(){
@@ -44,7 +44,7 @@ fn main() {
         }
     }
     println!("Mancala board:\n{}", to_string(&mancala));
-    println!("{} wins!", if mancala.heuristic_state_value()>=0{"You"}else{"AI"});
+    println!("{} win!", if mancala.heuristic_state_value()>=0{"Your"}else{"AI"});
 }
 
 fn get_inp() -> String {
